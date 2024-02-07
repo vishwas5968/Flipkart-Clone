@@ -25,5 +25,26 @@ public class AuthServiceImpl implements AuthService {
     private CustomerRepo customerRepo;
     private ResponseStructure<UserResponse> responseStructure;
 
+    @Override
+    public ResponseEntity<ResponseStructure<UserResponse>> registerUser(UserRequest userRequest) {
+//        if (userRepo.existsByEmail(userRequest.getEmail())){
+//            throw new ConstraintViolationException("User with email already present",HttpStatus.ALREADY_REPORTED.value(), "No 2 users can have same email");
+//        }
+//        else {
+            User user = userRepo.findByUsername(userRequest.getEmail().split("@")[0]).map(user1 -> {
+                if (user1.isEmailVerified()) {
+                    throw new ConstraintViolationException("User with email already present", HttpStatus.ALREADY_REPORTED.value(), "No 2 users can have same email");
+                } else {
+                    // Verify using OTP
+                }
+                return user1;
+            }).orElseGet(() -> saveUser(userRequest));
+            responseStructure.setData(mapToUserResponse(user));
+            responseStructure.setStatus(HttpStatus.CREATED.value());
+            responseStructure.setMessage("Please verify through the OTP sent on your email");
+            return new ResponseEntity<>(responseStructure, HttpStatus.CREATED);
+//        }
+    }
+
     
 }
