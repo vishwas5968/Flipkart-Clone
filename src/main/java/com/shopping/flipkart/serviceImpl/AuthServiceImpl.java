@@ -46,5 +46,41 @@ public class AuthServiceImpl implements AuthService {
 //        }
     }
 
-    
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder().email(user.getEmail()).username(user.getUsername()).userId(user.getUserId()).userrole(user.getUserrole()).isDeleted(user.isDeleted()).isEmailVerified(user.isEmailVerified()).build();
+    }
+
+    public User saveUser(UserRequest userRequest) {
+        User user=null;
+        switch (userRequest.getUserrole()) {
+            case SELLER -> {
+                user = sellerRepo.save((Seller) mapToUser(userRequest));
+            }
+            case CUSTOMER -> {
+                 user = customerRepo.save((Customer) mapToUser(userRequest));
+            }
+            default ->
+                    throw new ConstraintViolationException("No UserRole mentioned", HttpStatus.BAD_REQUEST.value(), "");
+        }
+        return user;
+    }
+
+    public <T extends User> T mapToUser(UserRequest userRequest) {
+        User user = null;
+        switch (userRequest.getUserrole()) {
+            case CUSTOMER -> {
+                user = new Customer();
+            }
+            case SELLER -> {
+                user = new Seller();
+            }
+        }
+        user.setUsername(userRequest.getEmail().split("@")[0]);
+        user.setEmail(userRequest.getEmail());
+        user.setPassword(userRequest.getPassword());
+        user.setUserrole(userRequest.getUserrole());
+        user.setDeleted(false);
+        user.setEmailVerified(false);
+        return (T) user;
+    }
 }
