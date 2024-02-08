@@ -1,9 +1,11 @@
 package com.shopping.flipkart.controller;
 
 import com.shopping.flipkart.requestdto.UserRequest;
+import com.shopping.flipkart.responseDto.OtpModel;
 import com.shopping.flipkart.responseDto.UserResponse;
 import com.shopping.flipkart.serviceImpl.AuthServiceImpl;
 import com.shopping.flipkart.util.ResponseStructure;
+import jakarta.mail.MessagingException;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +21,13 @@ public class AuthController {
     private AuthServiceImpl authService;
 
     @PostMapping(path = "/user")
-    public ResponseEntity<ResponseStructure<UserResponse>> registerUser(@RequestBody UserRequest userRequest){
+    public ResponseEntity<ResponseStructure<UserResponse>> registerUser(@RequestBody UserRequest userRequest) throws MessagingException {
         return authService.registerUser(userRequest);
+    }
+
+    @PostMapping(path = "/verify-otp")
+    public ResponseEntity<ResponseStructure<UserResponse>> otpVerify(@RequestBody OtpModel otpModel){
+
+        return authService.otpVerify(otpModel);
     }
 }
