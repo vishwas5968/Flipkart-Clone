@@ -1,39 +1,79 @@
 package com.shopping.flipkart.serviceImpl;
 
 import com.shopping.flipkart.cache.CacheStore;
-import com.shopping.flipkart.entity.Customer;
-import com.shopping.flipkart.entity.Seller;
-import com.shopping.flipkart.entity.User;
+import com.shopping.flipkart.entity.*;
 import com.shopping.flipkart.exception.ConstraintViolationException;
+import com.shopping.flipkart.repo.AccessTokenRepo;
+import com.shopping.flipkart.repo.RefreshTokenRepo;
 import com.shopping.flipkart.repo.UserRepo;
+import com.shopping.flipkart.requestdto.AuthRequest;
 import com.shopping.flipkart.requestdto.UserRequest;
+import com.shopping.flipkart.responseDto.AuthResponse;
 import com.shopping.flipkart.responseDto.OtpModel;
 import com.shopping.flipkart.responseDto.UserResponse;
+import com.shopping.flipkart.security.JwtService;
 import com.shopping.flipkart.service.AuthService;
+import com.shopping.flipkart.util.CookieManager;
 import com.shopping.flipkart.util.MessageStructure;
 import com.shopping.flipkart.util.ResponseStructure;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import lombok.AllArgsConstructor;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 @Slf4j
 @Service
-@AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private UserRepo userRepo;
-    private ResponseStructure<UserResponse> responseStructure;
+
+    private ResponseStructure<UserResponse> userResponseStructure;
+    private ResponseStructure<AuthResponse> authResponseStructure;
     private CacheStore<Integer> otpCacheStore;
     private CacheStore<User> userCacheStore;
     private JavaMailSender javaMailSender;
+    private PasswordEncoder passwordEncoder;
+    private AuthenticationManager authenticationManager;
+    private CookieManager cookieManager;
+    @Value("${myapp.access.expiry}")
+    private int accessExpiryInSeconds;
+    @Value("{myapp.refresh.expiry}")
+    private int refreshExpiryInSeconds;
+    private JwtService jwtService;
+    private AccessTokenRepo accessTokenRepo;
+    private RefreshTokenRepo refreshTokenRepo;
+
+    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, int accessExpiryInSeconds, int refreshExpiryInSeconds, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo) {
+
+        this.userRepo = userRepo;
+        this.userResponseStructure = userResponseStructure;
+        this.otpCacheStore = otpCacheStore;
+        this.userCacheStore = userCacheStore;
+        this.javaMailSender = javaMailSender;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.cookieManager = cookieManager;
+        this.accessExpiryInSeconds = accessExpiryInSeconds;
+        this.refreshExpiryInSeconds = refreshExpiryInSeconds;
+        this.jwtService = jwtService;
+        this.accessTokenRepo = accessTokenRepo;
+        this.refreshTokenRepo = refreshTokenRepo;
+
+    }
 
     @Override
     public ResponseEntity<ResponseStructure<UserResponse>> registerUser(UserRequest userRequest) {
@@ -50,10 +90,10 @@ public class AuthServiceImpl implements AuthService {
         }
         otpCacheStore.setCache(user.getEmail(), otp);
         userCacheStore.setCache(user.getEmail(), user);
-        responseStructure.setData(mapToUserResponse(user));
-        responseStructure.setStatus(HttpStatus.CREATED.value());
-        responseStructure.setMessage("Please verify through the OTP sent on your email"+otp);
-        return new ResponseEntity<>(responseStructure, HttpStatus.CREATED);
+        userResponseStructure.setData(mapToUserResponse(user));
+        userResponseStructure.setStatus(HttpStatus.CREATED.value());
+        userResponseStructure.setMessage("Please verify through the OTP sent on your email"+otp);
+        return new ResponseEntity<>(userResponseStructure, HttpStatus.CREATED);
     }
 
     @Override
@@ -65,12 +105,47 @@ public class AuthServiceImpl implements AuthService {
         if (exOtp.equals(otp.getOtp())){
             user.setEmailVerified(true);
             user=userRepo.save(user);
-            responseStructure.setData(mapToUserResponse(user));
-            responseStructure.setMessage("User saved successfully");
-            responseStructure.setStatus(HttpStatus.CREATED.value());
+            userResponseStructure.setData(mapToUserResponse(user));
+            userResponseStructure.setMessage("User saved successfully");
+            userResponseStructure.setStatus(HttpStatus.CREATED.value());
         }
-        return new ResponseEntity<>(responseStructure,HttpStatus.ACCEPTED);
+        return new ResponseEntity<>(userResponseStructure,HttpStatus.ACCEPTED);
     }
+
+    @Override
+    public ResponseEntity<ResponseStructure<AuthResponse>> login(AuthRequest authRequest, HttpServletResponse httpServletResponse) {
+        String username = authRequest.getEmail().split("@")[0];
+        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, authRequest.getPassword());
+        Authentication authentication = authenticationManager.authenticate(token);
+        if (!authentication.isAuthenticated()){
+            throw new ConstraintViolationException("", 10, "");
+        }
+        else {
+            //Generating the cookies and AuthResponse and returning to the client
+            User user = userRepo.findByUsername(username).get();
+            grantAccess(httpServletResponse, user);
+            authResponseStructure.setStatus(HttpStatus.OK.value());
+            authResponseStructure.setData(AuthResponse.builder().userId(user.getUserId()).userRole(user.getUserrole().name()).isAuthenticated(true).accessExpiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).refreshExpiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
+            authResponseStructure.setMessage("User Successfully Authenticated");
+            return new ResponseEntity<>(authResponseStructure, HttpStatus.ACCEPTED);
+        }
+    }
+
+    private void grantAccess(HttpServletResponse httpServletResponse,User user){
+        //Generating accessTokens, refreshTokens
+        String accessTokens = jwtService.generateAccessTokens(user.getUsername());
+        String refreshTokens = jwtService.generateRefreshTokens(user.getUsername());
+
+        //Adding access and refresh tokens cookies to the response
+        Cookie cookie = cookieManager.configureCookie(new Cookie("at", accessTokens), accessExpiryInSeconds);
+        httpServletResponse.addCookie(cookie);
+        httpServletResponse.addCookie(cookieManager.configureCookie(new Cookie("rt",refreshTokens), refreshExpiryInSeconds));
+
+        //Saving accessTokens, refreshTokens in the repo
+        accessTokenRepo.save(AccessToken.builder().token(accessTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).build());
+        refreshTokenRepo.save(RefreshToken.builder().token(refreshTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
+    }
+
     @Async
     public void sendMail(MessageStructure message) throws MessagingException {
         MimeMessage mimeMessage= javaMailSender.createMimeMessage();
@@ -106,10 +181,11 @@ public class AuthServiceImpl implements AuthService {
         }
         user.setUsername(userRequest.getEmail().split("@")[0]);
         user.setEmail(userRequest.getEmail());
-        user.setPassword(userRequest.getPassword());
+        user.setPassword(passwordEncoder.encode(userRequest.getPassword()));
         user.setUserrole(userRequest.getUserrole());
         user.setDeleted(false);
         user.setEmailVerified(false);
         return (T) user;
     }
+
 }
