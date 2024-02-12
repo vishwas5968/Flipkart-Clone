@@ -9,7 +9,6 @@ import com.shopping.flipkart.serviceImpl.AuthServiceImpl;
 import com.shopping.flipkart.util.ResponseStructure;
 import com.shopping.flipkart.util.SimpleResponseStructure;
 import jakarta.mail.MessagingException;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -48,12 +47,20 @@ public class AuthController {
     }
 
     @PreAuthorize(value = "hasAuthority('SELLER') or hasAuthority('CUSTOMER')")
+    @PostMapping(path = "/revoke-all")
     public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeAll(){
         return authService.revokeAll();
     }
 
     @PreAuthorize(value = "hasAuthority('SELLER') or hasAuthority('CUSTOMER')")
+    @PostMapping(path = "/revoke-other")
     public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOther(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at")String accessToken){
         return authService.revokeOther(accessToken,refreshToken);
+    }
+
+    @PreAuthorize(value = "hasAuthority('SELLER') or hasAuthority('CUSTOMER')")
+    @PostMapping(path = "/refresh")
+    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> refreshToken(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at")String accessToken, HttpServletResponse httpServletResponse){
+        return authService.refreshToken(accessToken,refreshToken,httpServletResponse);
     }
 }

@@ -16,4 +16,7 @@ public interface RefreshTokenRepo extends JpaRepository<RefreshToken,Long> {
 
     Optional<RefreshToken> findByTokenAndIsBlocked(User user, boolean b);
 
+    Optional<RefreshToken> findAllByUserAndIsBlockedAndTokenNot(User user, boolean b, String refreshToken);
+
+    boolean existsByTokenAndIsBlocked(String rt, boolean b);
 }

@@ -175,19 +175,13 @@ public class AuthServiceImpl implements AuthService {
     public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOther(String accessToken, String refreshToken) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         userRepo.findByUsername(username).ifPresent(user -> {
-            accessTokenRepo.findByUserAndIsBlocked(user,false).ifPresent(access -> {
-                if (!access.equals(accessToken)) {
+            accessTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,accessToken).ifPresent(access -> {
                     access.setBlocked(true);
                     accessTokenRepo.save(access);
-                }
-
             });
-            refreshTokenRepo.findByTokenAndIsBlocked(user,false).ifPresent(refresh -> {
-                if (!refresh.equals(refreshToken)) {
+            refreshTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,refreshToken).ifPresent(refresh -> {
                     refresh.setBlocked(true);
                     refreshTokenRepo.save(refresh);
-                }
-
             });
         });
         simpleResponseStructure.setMessage("Revoked from all other devices");
@@ -280,5 +274,26 @@ public class AuthServiceImpl implements AuthService {
         return (T) user;
     }
 
+    @Override
+    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepo.findByUsername(username).get();
+        if (accessToken != null) {
+            AccessToken accessToken1 = accessTokenRepo.findByToken(accessToken);
+            accessToken1.setBlocked(true);
+            accessTokenRepo.save(accessToken1);
+            grantAccess(httpServletResponse,user);
+        }
+        if (refreshToken != null) {
+            RefreshToken refreshToken1 = refreshTokenRepo.findByToken(refreshToken);
+            refreshToken1.setBlocked(true);
+            refreshTokenRepo.save(refreshToken1);
+            grantAccess(httpServletResponse,user);
+        }
+        simpleResponseStructure.setMessage("Revoked from all other devices");
+        simpleResponseStructure.setStatus(HttpStatus.OK.value());
+        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.OK);
+
+    }
 
 }
