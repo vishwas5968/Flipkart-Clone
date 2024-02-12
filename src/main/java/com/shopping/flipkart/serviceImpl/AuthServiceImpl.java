@@ -19,6 +19,7 @@ import com.shopping.flipkart.util.ResponseStructure;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,24 +52,23 @@ public class AuthServiceImpl implements AuthService {
     private CookieManager cookieManager;
     @Value("${myapp.access.expiry}")
     private int accessExpiryInSeconds;
-    @Value("{myapp.refresh.expiry}")
+    @Value("${myapp.refresh.expiry}")
     private int refreshExpiryInSeconds;
     private JwtService jwtService;
     private AccessTokenRepo accessTokenRepo;
     private RefreshTokenRepo refreshTokenRepo;
 
-    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, int accessExpiryInSeconds, int refreshExpiryInSeconds, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo) {
+    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo,ResponseStructure<AuthResponse> authResponseStructure) {
 
         this.userRepo = userRepo;
         this.userResponseStructure = userResponseStructure;
+        this.authResponseStructure = authResponseStructure;
         this.otpCacheStore = otpCacheStore;
         this.userCacheStore = userCacheStore;
         this.javaMailSender = javaMailSender;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.cookieManager = cookieManager;
-        this.accessExpiryInSeconds = accessExpiryInSeconds;
-        this.refreshExpiryInSeconds = refreshExpiryInSeconds;
         this.jwtService = jwtService;
         this.accessTokenRepo = accessTokenRepo;
         this.refreshTokenRepo = refreshTokenRepo;
@@ -125,10 +125,15 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepo.findByUsername(username).get();
             grantAccess(httpServletResponse, user);
             authResponseStructure.setStatus(HttpStatus.OK.value());
-            authResponseStructure.setData(AuthResponse.builder().userId(user.getUserId()).userRole(user.getUserrole().name()).isAuthenticated(true).accessExpiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).refreshExpiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
+            authResponseStructure.setData(AuthResponse.builder().userId(user.getUserId()).username(user.getUsername()).userRole(user.getUserrole().name()).isAuthenticated(true).accessExpiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).refreshExpiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
             authResponseStructure.setMessage("User Successfully Authenticated");
             return new ResponseEntity<>(authResponseStructure, HttpStatus.ACCEPTED);
         }
+    }
+
+    @Override
+    public void logout(HttpServletRequest request, HttpServletResponse response) {
+        
     }
 
     private void grantAccess(HttpServletResponse httpServletResponse,User user){

@@ -8,6 +8,7 @@ import com.shopping.flipkart.responseDto.UserResponse;
 import com.shopping.flipkart.serviceImpl.AuthServiceImpl;
 import com.shopping.flipkart.util.ResponseStructure;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,5 +37,9 @@ public class AuthController {
     @PostMapping(path = "/login")
     public ResponseEntity<ResponseStructure<AuthResponse>> login(@RequestBody AuthRequest authRequest, HttpServletResponse httpServletResponse){
         return  authService.login(authRequest, httpServletResponse);
+    }
+
+    public void logout(HttpServletResponse response, HttpServletRequest request) {
+        authService.logout(request, response);
     }
 }
