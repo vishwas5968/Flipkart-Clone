@@ -3,6 +3,7 @@ package com.shopping.flipkart.serviceImpl;
 import com.shopping.flipkart.cache.CacheStore;
 import com.shopping.flipkart.entity.*;
 import com.shopping.flipkart.exception.ConstraintViolationException;
+import com.shopping.flipkart.exception.UserNotLoggedInException;
 import com.shopping.flipkart.repo.AccessTokenRepo;
 import com.shopping.flipkart.repo.RefreshTokenRepo;
 import com.shopping.flipkart.repo.UserRepo;
@@ -16,10 +17,10 @@ import com.shopping.flipkart.service.AuthService;
 import com.shopping.flipkart.util.CookieManager;
 import com.shopping.flipkart.util.MessageStructure;
 import com.shopping.flipkart.util.ResponseStructure;
+import com.shopping.flipkart.util.SimpleResponseStructure;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,14 +37,15 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+
 @Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private UserRepo userRepo;
-
     private ResponseStructure<UserResponse> userResponseStructure;
     private ResponseStructure<AuthResponse> authResponseStructure;
+    private ResponseStructure<SimpleResponseStructure> simpleResponseStructure;
     private CacheStore<Integer> otpCacheStore;
     private CacheStore<User> userCacheStore;
     private JavaMailSender javaMailSender;
@@ -58,11 +60,12 @@ public class AuthServiceImpl implements AuthService {
     private AccessTokenRepo accessTokenRepo;
     private RefreshTokenRepo refreshTokenRepo;
 
-    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo,ResponseStructure<AuthResponse> authResponseStructure) {
+    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure,ResponseStructure<SimpleResponseStructure> simpleResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo,ResponseStructure<AuthResponse> authResponseStructure) {
 
         this.userRepo = userRepo;
         this.userResponseStructure = userResponseStructure;
         this.authResponseStructure = authResponseStructure;
+        this.simpleResponseStructure = simpleResponseStructure;
         this.otpCacheStore = otpCacheStore;
         this.userCacheStore = userCacheStore;
         this.javaMailSender = javaMailSender;
@@ -132,9 +135,48 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(HttpServletRequest request, HttpServletResponse response) {
-        
+    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> logout(String accessToken, String refreshToken, HttpServletResponse response) {
+        if (accessToken==null && refreshToken==null)
+            throw new UserNotLoggedInException();
+        AccessToken accessToken1 = accessTokenRepo.findByToken(accessToken);
+        accessToken1.setBlocked(true);
+        accessTokenRepo.save(accessToken1);
+        RefreshToken refreshToken1 = refreshTokenRepo.findByToken(refreshToken);
+        refreshToken1.setBlocked(true);
+        refreshTokenRepo.save(refreshToken1);
+        response.addCookie(cookieManager.invalidateCookie(new Cookie("at","")));
+        response.addCookie(cookieManager.invalidateCookie(new Cookie("rt","")));
+        simpleResponseStructure.setStatus(HttpStatus.GONE.value());
+        simpleResponseStructure.setMessage("Logged out successfully");
+        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.GONE);
     }
+
+//    @Override
+//    public ResponseEntity<ResponseStructure<String>> logout(HttpServletRequest request, HttpServletResponse response) {
+//        String rt = "";
+//        String at = "";
+//        Cookie[] cookies = request.getCookies();
+//        for (Cookie cookie : cookies) {
+//            if (cookie.getName().equals("at")) {
+//                at = cookie.getValue();
+//                AccessToken accessToken = accessTokenRepo.findByToken(at);
+//                accessToken.setBlocked(true);
+//                accessTokenRepo.save(accessToken);
+//            }
+//            if (cookie.getName().equals("rt")) {
+//                rt = cookie.getValue();
+//                RefreshToken refreshToken = refreshTokenRepo.findByToken(rt);
+//                refreshToken.setBlocked(true);
+//                refreshTokenRepo.save(refreshToken);
+//            }
+//        }
+//        response.addCookie(cookieManager.invalidateCookie(new Cookie(at,"")));
+//        response.addCookie(cookieManager.invalidateCookie(new Cookie(rt,"")));
+//        stringResponseStructure.setMessage("Logout Successful");
+//        stringResponseStructure.setData("Logged out successfully");
+//        stringResponseStructure.setStatus(HttpStatus.GONE.value());
+//        return new ResponseEntity<>(stringResponseStructure,HttpStatus.GONE);
+//    }
 
     private void grantAccess(HttpServletResponse httpServletResponse,User user){
         //Generating accessTokens, refreshTokens
@@ -147,8 +189,8 @@ public class AuthServiceImpl implements AuthService {
         httpServletResponse.addCookie(cookieManager.configureCookie(new Cookie("rt",refreshTokens), refreshExpiryInSeconds));
 
         //Saving accessTokens, refreshTokens in the repo
-        accessTokenRepo.save(AccessToken.builder().token(accessTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).build());
-        refreshTokenRepo.save(RefreshToken.builder().token(refreshTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
+        accessTokenRepo.save(AccessToken.builder().user(user).token(accessTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(accessExpiryInSeconds)).build());
+        refreshTokenRepo.save(RefreshToken.builder().user(user).token(refreshTokens).isBlocked(false).expiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds)).build());
     }
 
     @Async
@@ -161,6 +203,7 @@ public class AuthServiceImpl implements AuthService {
         messageHelper.setText(message.getText(),true);
         javaMailSender.send(mimeMessage);
     }
+
 
     public void sendSuccessfulRegistrationMail(User user) throws MessagingException {
         sendMail(MessageStructure.builder().to(user.getEmail()).text("We have successfully registered your email").build());

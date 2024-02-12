@@ -1,9 +1,6 @@
 package com.shopping.flipkart.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -23,4 +20,6 @@ public class RefreshToken {
     private boolean isBlocked;
     private LocalDateTime expiration;
 
+    @ManyToOne
+    private User user;
 }
