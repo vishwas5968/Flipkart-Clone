@@ -4,7 +4,7 @@ import com.shopping.flipkart.entity.AccessToken;
 import com.shopping.flipkart.entity.RefreshToken;
 import com.shopping.flipkart.repo.AccessTokenRepo;
 import com.shopping.flipkart.repo.RefreshTokenRepo;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
+@AllArgsConstructor
 public class ScheduledJobs {
-    @Autowired
+
     private AccessTokenRepo accessTokenRepo;
-    @Autowired
     private RefreshTokenRepo refreshTokenRepo;
 
     @Scheduled(cron = "0 */6 * * *")
