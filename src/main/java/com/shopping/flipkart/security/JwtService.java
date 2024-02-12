@@ -1,7 +1,6 @@
 package com.shopping.flipkart.security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +34,16 @@ public class JwtService {
     private Key getSignatureKey(){
         byte[] secretBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(secretBytes);
+    }
+
+    private Claims jwtParser(String token){
+        JwtParser jwtParser = Jwts.parserBuilder().setSigningKey(getSignatureKey()).build();
+        return jwtParser.parseClaimsJws(token).getBody();
+    }
+
+    public String extractUsername(String token){
+        Claims claims = jwtParser(token);
+        return claims.getSubject();
     }
 
 }

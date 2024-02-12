@@ -32,6 +32,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -149,6 +150,49 @@ public class AuthServiceImpl implements AuthService {
         simpleResponseStructure.setStatus(HttpStatus.GONE.value());
         simpleResponseStructure.setMessage("Logged out successfully");
         return new ResponseEntity<>(simpleResponseStructure,HttpStatus.GONE);
+
+    }
+
+    @Override
+    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeAll() {
+       String username = SecurityContextHolder.getContext().getAuthentication().getName();
+       userRepo.findByUsername(username).ifPresent(user -> {
+           accessTokenRepo.findByUserAndIsBlocked(user,false).ifPresent(accessToken -> {
+               accessToken.setBlocked(true);
+               accessTokenRepo.save(accessToken);
+           });
+           refreshTokenRepo.findByTokenAndIsBlocked(user,false).ifPresent(refreshToken -> {
+               refreshToken.setBlocked(true);
+               refreshTokenRepo.save(refreshToken);
+           });
+       });
+       simpleResponseStructure.setMessage("Revoked from all devices");
+       simpleResponseStructure.setStatus(HttpStatus.OK.value());
+        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOther(String accessToken, String refreshToken) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userRepo.findByUsername(username).ifPresent(user -> {
+            accessTokenRepo.findByUserAndIsBlocked(user,false).ifPresent(access -> {
+                if (!access.equals(accessToken)) {
+                    access.setBlocked(true);
+                    accessTokenRepo.save(access);
+                }
+
+            });
+            refreshTokenRepo.findByTokenAndIsBlocked(user,false).ifPresent(refresh -> {
+                if (!refresh.equals(refreshToken)) {
+                    refresh.setBlocked(true);
+                    refreshTokenRepo.save(refresh);
+                }
+
+            });
+        });
+        simpleResponseStructure.setMessage("Revoked from all other devices");
+        simpleResponseStructure.setStatus(HttpStatus.OK.value());
+        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.OK);
     }
 
 //    @Override
@@ -210,7 +254,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     public void sendOtpToMail(User user,Integer otp) throws MessagingException{
-        sendMail(MessageStructure.builder().to(user.getEmail()).text("Hey, "+user.getUsername()+" Good to see that you are interested in Flipkart, "+"Complete your registration using the OTP <br>"+"<h1>"+otp+"<h1>"+"Note: The OTP expires in 1 minute"+"<br><br>"+"with best regards<br>"+"Flipkart").sentDate(new Date()).subject("Complete your Registration to Flipkart").build());
+        sendMail(MessageStructure.builder().to(user.getEmail()).text("Hey, "+user.getUsername()+" Good to see that you are interested in Flipkart, "+"Complete your registration using the OTP <br>"+"<h1>"+otp+"</h1>"+"Note: The OTP expires in 1 minute"+"</br><br>"+"with best regards</br>"+"Flipkart").sentDate(new Date()).subject("Complete your Registration to Flipkart").build());
     }
 
     private UserResponse mapToUserResponse(User user) {
@@ -235,5 +279,6 @@ public class AuthServiceImpl implements AuthService {
         user.setEmailVerified(false);
         return (T) user;
     }
+
 
 }
