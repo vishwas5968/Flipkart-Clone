@@ -6,7 +6,7 @@ import com.shopping.flipkart.responseDto.AuthResponse;
 import com.shopping.flipkart.responseDto.OtpModel;
 import com.shopping.flipkart.responseDto.UserResponse;
 import com.shopping.flipkart.util.ResponseStructure;
-import jakarta.servlet.http.HttpServletRequest;
+import com.shopping.flipkart.util.SimpleResponseStructure;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 
@@ -18,5 +18,7 @@ public interface AuthService {
 
     ResponseEntity<ResponseStructure<AuthResponse>> login(AuthRequest authRequest, HttpServletResponse httpServletResponse);
 
-    void logout(HttpServletRequest request, HttpServletResponse response);
+//    ResponseEntity<ResponseStructure<String>> logout(HttpServletRequest request, HttpServletResponse response);
+
+    ResponseEntity<ResponseStructure<SimpleResponseStructure>> logout(String accessToken, String refreshToken, HttpServletResponse response);
 }
