@@ -17,13 +17,14 @@ public class ScheduledJobs {
     private AccessTokenRepo accessTokenRepo;
     @Autowired
     private RefreshTokenRepo refreshTokenRepo;
-    @Scheduled(cron = "")
+
+    @Scheduled(cron = "0 */6 * * *")
     public void removeExpiredRefreshToken(){
         List<RefreshToken> refreshTokenList = refreshTokenRepo.findByExpirationBefore(LocalDateTime.now());
         refreshTokenRepo.deleteAll(refreshTokenList);
     }
 
-    @Scheduled(cron = "")
+    @Scheduled(cron = "0 */6 * * *")
     public void removeExpiredAccessToken(){
         List<AccessToken> accessTokenList = accessTokenRepo.findByExpirationBefore(LocalDateTime.now());
         accessTokenRepo.deleteAll(accessTokenList);
