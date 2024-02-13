@@ -31,6 +31,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        log.info("In JWT Filter");
         String rt = null;
         String at = null;
         Cookie[] cookies = request.getCookies();
@@ -44,11 +45,13 @@ public class JwtFilter extends OncePerRequestFilter {
                 }
             }
         }
+        log.info(at);
+        log.info(rt);
         if ( accessTokenRepo.existsByTokenAndIsBlocked(at,true) || refreshTokenRepo.existsByTokenAndIsBlocked(rt,true)) {
             throw new RuntimeException("Unauthorized ");
         }
 
-        if (at != null && rt != null) {
+        if (at !=null && rt != null) {
             String username = null;
             AccessToken accessToken = accessTokenRepo.findByTokenAndIsBlocked(at, false).get();
             if (accessToken == null)
@@ -61,10 +64,10 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                 //Sets authenticationToken inside SecurityContext(which is present in SecurityContextHolder)
                 log.info("Authentication Completed");
-                filterChain.doFilter(request, response);
                 //Passes the req and res to all the next filters
             }
         }
+        filterChain.doFilter(request, response);
     }
 
 }

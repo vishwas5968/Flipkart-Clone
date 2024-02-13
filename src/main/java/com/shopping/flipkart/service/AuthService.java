@@ -16,15 +16,15 @@ public interface AuthService {
 
     ResponseEntity<ResponseStructure<UserResponse>> otpVerify(OtpModel otp);
 
-    ResponseEntity<ResponseStructure<AuthResponse>> login(AuthRequest authRequest, HttpServletResponse httpServletResponse);
+    ResponseEntity<ResponseStructure<AuthResponse>> login(String accessToken, String refreshToken,AuthRequest authRequest, HttpServletResponse httpServletResponse);
 
 //    ResponseEntity<ResponseStructure<String>> logout(HttpServletRequest request, HttpServletResponse response);
 
-    ResponseEntity<ResponseStructure<SimpleResponseStructure>> logout(String accessToken, String refreshToken, HttpServletResponse response);
+    ResponseEntity<SimpleResponseStructure> logout(String accessToken, String refreshToken, HttpServletResponse response);
 
-    ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeAll();
+    ResponseEntity<SimpleResponseStructure> revokeAll();
 
-    ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOther(String accessToken, String refreshToken);
+    ResponseEntity<SimpleResponseStructure> revokeOther(String accessToken, String refreshToken);
 
-    ResponseEntity<ResponseStructure<SimpleResponseStructure>> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse);
+    ResponseEntity<SimpleResponseStructure> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse);
 }

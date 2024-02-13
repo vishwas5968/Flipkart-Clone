@@ -14,4 +14,11 @@ public class SimpleResponseStructure {
     private int status;
     private String message;
 
+    @Override
+    public String toString() {
+        return "SimpleResponseStructure{" +
+                "status=" + status +
+                ", message='" + message + '\'' +
+                '}';
+    }
 }

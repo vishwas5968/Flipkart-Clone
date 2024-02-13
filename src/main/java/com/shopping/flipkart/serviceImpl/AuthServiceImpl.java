@@ -46,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private UserRepo userRepo;
     private ResponseStructure<UserResponse> userResponseStructure;
     private ResponseStructure<AuthResponse> authResponseStructure;
-    private ResponseStructure<SimpleResponseStructure> simpleResponseStructure;
+    private SimpleResponseStructure simpleResponseStructure;
     private CacheStore<Integer> otpCacheStore;
     private CacheStore<User> userCacheStore;
     private JavaMailSender javaMailSender;
@@ -61,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
     private AccessTokenRepo accessTokenRepo;
     private RefreshTokenRepo refreshTokenRepo;
 
-    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure,ResponseStructure<SimpleResponseStructure> simpleResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo,ResponseStructure<AuthResponse> authResponseStructure) {
+    public AuthServiceImpl(UserRepo userRepo, ResponseStructure<UserResponse> userResponseStructure,SimpleResponseStructure simpleResponseStructure, CacheStore<Integer> otpCacheStore, CacheStore<User> userCacheStore, JavaMailSender javaMailSender, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, CookieManager cookieManager, JwtService jwtService, AccessTokenRepo accessTokenRepo, RefreshTokenRepo refreshTokenRepo,ResponseStructure<AuthResponse> authResponseStructure) {
 
         this.userRepo = userRepo;
         this.userResponseStructure = userResponseStructure;
@@ -117,7 +117,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public ResponseEntity<ResponseStructure<AuthResponse>> login(AuthRequest authRequest, HttpServletResponse httpServletResponse) {
+    public ResponseEntity<ResponseStructure<AuthResponse>> login(String accessToken, String refreshToken,AuthRequest authRequest, HttpServletResponse httpServletResponse) {
+        if (accessToken != null) {
+            throw new RuntimeException("User is already logged in!!");
+        }
         String username = authRequest.getEmail().split("@")[0];
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, authRequest.getPassword());
         Authentication authentication = authenticationManager.authenticate(token);
@@ -136,7 +139,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> logout(String accessToken, String refreshToken, HttpServletResponse response) {
+    public ResponseEntity<SimpleResponseStructure> logout(String accessToken, String refreshToken, HttpServletResponse response) {
         if (accessToken==null && refreshToken==null)
             throw new UserNotLoggedInException();
         AccessToken accessToken1 = accessTokenRepo.findByToken(accessToken);
@@ -154,14 +157,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeAll() {
+    public ResponseEntity<SimpleResponseStructure> revokeAll() {
        String username = SecurityContextHolder.getContext().getAuthentication().getName();
        userRepo.findByUsername(username).ifPresent(user -> {
-           accessTokenRepo.findByUserAndIsBlocked(user,false).ifPresent(accessToken -> {
+           accessTokenRepo.findByUserAndIsBlocked(user,false).forEach(accessToken -> {
                accessToken.setBlocked(true);
                accessTokenRepo.save(accessToken);
            });
-           refreshTokenRepo.findByTokenAndIsBlocked(user,false).ifPresent(refreshToken -> {
+           refreshTokenRepo.findByUserAndIsBlocked(user,false).forEach(refreshToken -> {
                refreshToken.setBlocked(true);
                refreshTokenRepo.save(refreshToken);
            });
@@ -172,14 +175,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOther(String accessToken, String refreshToken) {
+    public ResponseEntity<SimpleResponseStructure> revokeOther(String accessToken, String refreshToken) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         userRepo.findByUsername(username).ifPresent(user -> {
-            accessTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,accessToken).ifPresent(access -> {
+            accessTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,accessToken).forEach(access -> {
                     access.setBlocked(true);
                     accessTokenRepo.save(access);
             });
-            refreshTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,refreshToken).ifPresent(refresh -> {
+            refreshTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,refreshToken).forEach(refresh -> {
                     refresh.setBlocked(true);
                     refreshTokenRepo.save(refresh);
             });
@@ -215,6 +218,34 @@ public class AuthServiceImpl implements AuthService {
 //        stringResponseStructure.setStatus(HttpStatus.GONE.value());
 //        return new ResponseEntity<>(stringResponseStructure,HttpStatus.GONE);
 //    }
+
+    @Override
+    public ResponseEntity<SimpleResponseStructure> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepo.findByUsername(username).get();
+        if (accessToken != null) {
+            AccessToken accessToken1 = accessTokenRepo.findByToken(accessToken);
+            accessToken1.setBlocked(true);
+            accessTokenRepo.save(accessToken1);
+            grantAccess(httpServletResponse,user);
+        }
+        else {
+            grantAccess(httpServletResponse,user);
+        }
+        if (refreshToken != null) {
+            RefreshToken refreshToken1 = refreshTokenRepo.findByToken(refreshToken);
+            refreshToken1.setBlocked(true);
+            refreshTokenRepo.save(refreshToken1);
+            grantAccess(httpServletResponse,user);
+        }
+        else {
+            throw new RuntimeException("User is not logged in");
+        }
+        simpleResponseStructure.setMessage("Token Refreshed");
+        simpleResponseStructure.setStatus(HttpStatus.OK.value());
+        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.OK);
+
+    }
 
     private void grantAccess(HttpServletResponse httpServletResponse,User user){
         //Generating accessTokens, refreshTokens
@@ -272,28 +303,6 @@ public class AuthServiceImpl implements AuthService {
         user.setDeleted(false);
         user.setEmailVerified(false);
         return (T) user;
-    }
-
-    @Override
-    public ResponseEntity<ResponseStructure<SimpleResponseStructure>> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepo.findByUsername(username).get();
-        if (accessToken != null) {
-            AccessToken accessToken1 = accessTokenRepo.findByToken(accessToken);
-            accessToken1.setBlocked(true);
-            accessTokenRepo.save(accessToken1);
-            grantAccess(httpServletResponse,user);
-        }
-        if (refreshToken != null) {
-            RefreshToken refreshToken1 = refreshTokenRepo.findByToken(refreshToken);
-            refreshToken1.setBlocked(true);
-            refreshTokenRepo.save(refreshToken1);
-            grantAccess(httpServletResponse,user);
-        }
-        simpleResponseStructure.setMessage("Revoked from all other devices");
-        simpleResponseStructure.setStatus(HttpStatus.OK.value());
-        return new ResponseEntity<>(simpleResponseStructure,HttpStatus.OK);
-
     }
 
 }
