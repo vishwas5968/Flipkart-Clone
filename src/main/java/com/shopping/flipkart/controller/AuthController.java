@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1")
 @AllArgsConstructor
+@CrossOrigin(allowCredentials = "true",origins = "http://localhost:5173/")
 public class AuthController {
 
     private AuthServiceImpl authService;
@@ -30,8 +31,9 @@ public class AuthController {
     public ResponseEntity<ResponseStructure<UserResponse>> otpVerify(@RequestBody OtpModel otpModel){
         return authService.otpVerify(otpModel);
     }
+
     @PostMapping(path = "/login")
-    public ResponseEntity<ResponseStructure<AuthResponse>> login(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at")String accessToken,@RequestBody AuthRequest authRequest, HttpServletResponse httpServletResponse){
+    public ResponseEntity<ResponseStructure<AuthResponse>> login(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at",required = false)String accessToken,@RequestBody AuthRequest authRequest, HttpServletResponse httpServletResponse){
         return  authService.login(accessToken,refreshToken,authRequest, httpServletResponse);
     }
 //    @PostMapping(path = "/logout")
@@ -58,7 +60,7 @@ public class AuthController {
 
 //    @PreAuthorize(value = "hasAuthority('SELLER') or hasAuthority('CUSTOMER')")
     @PostMapping(path = "/refresh")
-    public ResponseEntity<SimpleResponseStructure> refreshToken(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at")String accessToken, HttpServletResponse httpServletResponse){
+    public ResponseEntity<ResponseStructure<AuthResponse>> refreshToken(@CookieValue(name = "rt",required = false)String refreshToken, @CookieValue(name = "at",required = false)String accessToken, HttpServletResponse httpServletResponse){
         return authService.refreshToken(accessToken,refreshToken,httpServletResponse);
     }
 }

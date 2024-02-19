@@ -26,5 +26,5 @@ public interface AuthService {
 
     ResponseEntity<SimpleResponseStructure> revokeOther(String accessToken, String refreshToken);
 
-    ResponseEntity<SimpleResponseStructure> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse);
+    ResponseEntity<ResponseStructure<AuthResponse>> refreshToken(String accessToken, String refreshToken, HttpServletResponse httpServletResponse);
 }
