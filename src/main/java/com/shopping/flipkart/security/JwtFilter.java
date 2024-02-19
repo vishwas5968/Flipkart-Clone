@@ -45,8 +45,8 @@ public class JwtFilter extends OncePerRequestFilter {
                 }
             }
         }
-        log.info(at);
-        log.info(rt);
+//        log.info(at);
+//        log.info(rt);
         if ( accessTokenRepo.existsByTokenAndIsBlocked(at,true) || refreshTokenRepo.existsByTokenAndIsBlocked(rt,true)) {
             throw new RuntimeException("Unauthorized ");
         }
@@ -63,8 +63,8 @@ public class JwtFilter extends OncePerRequestFilter {
                 authenticationToken.setDetails(new WebAuthenticationDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                 //Sets authenticationToken inside SecurityContext(which is present in SecurityContextHolder)
-                log.info("Authentication Completed");
-                //Passes the req and res to all the next filters
+//                log.info("Authentication Completed");
+                //Passes the req and res to all the nex  t filters
             }
         }
         filterChain.doFilter(request, response);

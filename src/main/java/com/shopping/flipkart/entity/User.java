@@ -24,4 +24,18 @@ public class User {
     private boolean isEmailVerified;
     private boolean isDeleted;
     private int loginCount;
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "userId=" + userId +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", password='" + password + '\'' +
+                ", userrole=" + userrole +
+                ", isEmailVerified=" + isEmailVerified +
+                ", isDeleted=" + isDeleted +
+                ", loginCount=" + loginCount +
+                '}';
+    }
 }

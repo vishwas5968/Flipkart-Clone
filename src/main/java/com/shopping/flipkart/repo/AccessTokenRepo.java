@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface AccessTokenRepo extends JpaRepository<AccessToken,Long> {
 
-    AccessToken findByToken(String at);
+    Optional<AccessToken> findByToken(String at);
 
     List<AccessToken> findByExpirationBefore(LocalDateTime now);
 
