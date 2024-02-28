@@ -23,4 +23,7 @@ public class User {
     private UserRole userrole;
     private boolean isEmailVerified;
     private boolean isDeleted;
+    private int loginCount;
+
+    
 }
