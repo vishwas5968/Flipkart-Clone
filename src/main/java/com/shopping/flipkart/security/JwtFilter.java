@@ -53,7 +53,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         if (at !=null && rt != null) {
             String username = null;
-            AccessToken accessToken = accessTokenRepo.findByTokenAndIsBlocked(at, false).get();
+            AccessToken accessToken = accessTokenRepo.findByTokenAndIsBlocked(at, false). get();
             if (accessToken == null)
                 throw new RuntimeException("Failed to Authenticate");
             else {
